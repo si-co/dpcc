@@ -29,19 +29,16 @@ func TestPublicHashService(t *testing.T) {
 	s5 := local.GetServices(nodes, templateID)[5].(*Service)
 	services := []*Service{s0, s1, s2, s3, s4, s5}
 
-	resp, err := s0.HandleClientRequest(&dpcc.ClientRequest{
-		Roster:        roster,
-		ConsensusType: dpcc.Public,
-		RequestType:   dpcc.Hash,
-		URL:           tURL,
-		Nonce:         lib.GenNonce(),
+	resp, err := s0.HashPublic(&dpcc.HashPublicRequest{
+		Roster: roster,
+		URL:    tURL,
+		Nonce:  lib.GenNonce(),
 	})
 
 	// test if everything wents good
 	require.Nil(t, err)
 	require.NotNil(t, resp)
-	require.Equal(t, len(services)-1, len(resp.Hashes))
-	require.Equal(t, len(services)-1, len(resp.Signatures))
+	require.Equal(t, len(services)-1, len(resp.Responses))
 
 	local.CloseAll()
 }

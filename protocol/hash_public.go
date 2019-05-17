@@ -23,6 +23,14 @@ func init() {
 	onet.GlobalProtocolRegister(NameHashPublic, NewHashPublicProtocol)
 }
 
+// WorkerResponseHashPublic is used to store the responses of the workers by
+// the leader and send them back to the service
+type WorkerResponseHashPublic struct {
+	PublicKey kyber.Point
+	Hash      []byte
+	Signature []byte
+}
+
 // HashPublic is the core structure of the protocol, holding all the
 // necessary information
 type HashPublic struct {
@@ -31,12 +39,8 @@ type HashPublic struct {
 	URL string
 	// nonce received from the client
 	Nonce []byte
-	// map of hashes indexed by the public key of the conode
-	Hashes map[string][]byte
-	// map of hashes signatures indexed by the public key of the conode
-	Signatures map[string][]byte
-	// map of public keys indexed by the public key itself as a string
-	PublicKeys map[string]kyber.Point
+	// map of conode responses indexed by the public key of the worker
+	Responses map[string]*WorkerResponseHashPublic
 	// associated lock
 	responsesLock *sync.Mutex
 
@@ -55,9 +59,7 @@ func NewHashPublicProtocol(n *onet.TreeNodeInstance) (onet.ProtocolInstance, err
 	log.Lvl2("creating new hash comparaison protocol")
 	h := &HashPublic{
 		TreeNodeInstance: n,
-		Hashes:           make(map[string][]byte),
-		Signatures:       make(map[string][]byte),
-		PublicKeys:       make(map[string]kyber.Point),
+		Responses:        make(map[string]*WorkerResponseHashPublic),
 		responsesLock:    new(sync.Mutex),
 		Finished:         make(chan bool, 1),
 	}
@@ -182,10 +184,13 @@ func (h *HashPublic) handleResponse(in *HashPublicResponse) error {
 	// if we are the root, we store the child contribution
 	pkString := in.PublicKey.String()
 	log.Lvlf3("%s aggregating response for node %s", h.Name(), pkString)
+	wr := &WorkerResponseHashPublic{
+		PublicKey: in.PublicKey,
+		Hash:      in.Hash,
+		Signature: in.Signature,
+	}
 	h.responsesLock.Lock()
-	h.Hashes[pkString] = in.Hash
-	h.Signatures[pkString] = in.Signature
-	h.PublicKeys[pkString] = in.PublicKey
+	h.Responses[pkString] = wr
 	h.responsesLock.Unlock()
 	return nil
 

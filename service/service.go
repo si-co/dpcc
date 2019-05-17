@@ -39,9 +39,9 @@ type storage struct {
 	sync.Mutex
 }
 
-// HandleClientRequest is responsible for handling the client request, i.e.
-// start the corresponding protocols and send the response back to the client
-func (s *Service) HandleClientRequest(req *dpcc.ClientRequest) (*dpcc.ResponseToClient, error) {
+// HashPublic receives a request of hash public protocol from the client,
+// executes the correct protocol and sends the response back to the client
+func (s *Service) HashPublic(req *dpcc.HashPublicRequest) (*dpcc.HashPublicResponse, error) {
 	// generate the tree
 	root := req.Roster.NewRosterWithRoot(s.ServerIdentity())
 	tree := root.GenerateNaryTree(len(req.Roster.List))
@@ -50,51 +50,49 @@ func (s *Service) HandleClientRequest(req *dpcc.ClientRequest) (*dpcc.ResponseTo
 
 	}
 
-	// the different protocols are consensus type and request type dependent
-	switch req.ConsensusType {
-	case dpcc.Public:
-		switch req.RequestType {
-		case dpcc.Hash:
-			// create protocol
-			instance, err := s.CreateProtocol(protocol.NameHashPublic, tree)
-			if err != nil {
-				return nil, err
-			}
-			protocol := instance.(*protocol.HashPublic)
-
-			// configure protocol
-			protocol.URL = req.URL
-			protocol.Nonce = req.Nonce
-
-			// run protocol
-			if err = protocol.Start(); err != nil {
-				return nil, err
-			}
-
-			// wait protocol to finish or trigger timeout error
-			select {
-			case <-protocol.Finished:
-				// get data from protocol
-				hashes := protocol.Hashes
-				signatures := protocol.Signatures
-
-				// send hashes and signatures to client
-				resp := &dpcc.ResponseToClient{
-					Hashes:     hashes,
-					Signatures: signatures,
-				}
-
-				return resp, nil
-			case <-time.After(time.Second * 5):
-				return nil, errors.New("timeout in hash public protocol")
-			}
-		default:
-			return nil, errors.New("unknow request type")
-
-		}
-	default:
-		return nil, errors.New("unknow consensus type")
+	// create protocol
+	instance, err := s.CreateProtocol(protocol.NameHashPublic, tree)
+	if err != nil {
+		return nil, err
 	}
+	protocol := instance.(*protocol.HashPublic)
+
+	// configure protocol
+	protocol.URL = req.URL
+	protocol.Nonce = req.Nonce
+
+	// run protocol
+	if err = protocol.Start(); err != nil {
+		return nil, err
+	}
+
+	// wait protocol to finish or trigger timeout error
+	select {
+	case <-protocol.Finished:
+		// get data from protocol
+		responses := protocol.Responses
+
+		// prepare data for client. The details of the protocol should
+		// not be visible to the client, therefore che service is
+		// responsible to "translate" the data in a format for the
+		// colient
+		hashPublicResponses := make(map[string]*dpcc.HashPublicSingleResponse)
+		for pk, r := range responses {
+			sr := &dpcc.HashPublicSingleResponse{
+				PubliKey:  r.PublicKey,
+				Hash:      r.Hash,
+				Signature: r.Signature,
+			}
+			hashPublicResponses[pk] = sr
+		}
+
+		// send hashes and signatures to client
+		return &dpcc.HashPublicResponse{Responses: hashPublicResponses}, nil
+	case <-time.After(time.Second * 5):
+		return nil, errors.New("timeout in hash public protocol")
+	}
+	// create protocol
+
 }
 
 // NewProtocol is called on all nodes of a Tree (except the root, since it is
@@ -144,7 +142,7 @@ func newService(c *onet.Context) (onet.Service, error) {
 	s := &Service{
 		ServiceProcessor: onet.NewServiceProcessor(c),
 	}
-	if err := s.RegisterHandlers(s.HandleClientRequest); err != nil {
+	if err := s.RegisterHandlers(s.HashPublic); err != nil {
 		log.Error(err, "Couldn't register messages")
 		return nil, err
 	}

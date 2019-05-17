@@ -46,28 +46,24 @@ func TestHashPublicProtocol(t *testing.T) {
 		select {
 		case <-p.Finished:
 			// results not nil
-			require.NotNil(t, p.Hashes)
-			require.NotNil(t, p.Signatures)
-			require.NotNil(t, p.PublicKeys)
+			require.NotNil(t, p.Responses)
 
 			// enough responses from workers
-			require.Equal(t, len(p.Hashes), nbrHosts-1)
-			require.Equal(t, len(p.Signatures), nbrHosts-1)
-			require.Equal(t, len(p.PublicKeys), nbrHosts-1)
+			require.Equal(t, len(p.Responses), nbrHosts-1)
 
 			// verify all the signatures, which should be correct
-			for pkString, s := range p.Signatures {
-				err := lib.VerifyWithNonce(p.PublicKeys[pkString], p.Hashes[pkString], nonce, s)
+			for _, r := range p.Responses {
+				err := lib.VerifyWithNonce(r.PublicKey, r.Hash, nonce, r.Signature)
 				require.Nil(t, err)
 			}
 
 			// print the map containing the hashes
-			//			for pkString, v := range p.Hashes {
-			//				hashEncoded := base64.StdEncoding.EncodeToString(v)
+			//			for pkString, r := range p.Responses {
+			//				hashEncoded := base64.StdEncoding.EncodeToString(r.Hash)
 			//				fmt.Printf("Server with pk %s sended %s\n", pkString, hashEncoded)
 			//			}
 
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * 5):
 			t.Fatal("couldn't get hash public protocol done in time")
 		}
 

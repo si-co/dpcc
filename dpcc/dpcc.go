@@ -66,8 +66,8 @@ func cmdHashPublic(c *cli.Context) error {
 	}
 
 	// print received hashes
-	for n, h := range resp.Hashes {
-		fmt.Println("Node", n, "sent hash", base64.StdEncoding.EncodeToString(h))
+	for n, singleResp := range resp.Responses {
+		fmt.Println("Node", n, "sent hash", base64.StdEncoding.EncodeToString(singleResp.Hash))
 	}
 	return nil
 
