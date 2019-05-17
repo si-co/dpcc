@@ -9,7 +9,6 @@ import (
 
 	"github.com/si-co/dpcc/lib"
 	"go.dedis.ch/cothority/v3"
-	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
@@ -21,14 +20,6 @@ const NameHashPublic = "HashPublic"
 func init() {
 	network.RegisterMessages(HashPublicAnnouncement{}, HashPublicResponse{})
 	onet.GlobalProtocolRegister(NameHashPublic, NewHashPublicProtocol)
-}
-
-// WorkerResponseHashPublic is used to store the responses of the workers by
-// the leader and send them back to the service
-type WorkerResponseHashPublic struct {
-	PublicKey kyber.Point
-	Hash      []byte
-	Signature []byte
 }
 
 // HashPublic is the core structure of the protocol, holding all the

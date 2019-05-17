@@ -18,11 +18,17 @@ type chanHashPublicAnnouncement struct {
 	HashPublicAnnouncement
 }
 
-// HashPublicResponse send by every conode to the root
-type HashPublicResponse struct {
+// WorkerResponseHashPublic is used to store the responses of the workers by
+// the leader and send them back to the service
+type WorkerResponseHashPublic struct {
 	PublicKey kyber.Point
 	Hash      []byte
 	Signature []byte
+}
+
+// HashPublicResponse send by every conode to the root
+type HashPublicResponse struct {
+	WorkerResponseHashPublic
 }
 
 type chanHashPublicResponse struct {
