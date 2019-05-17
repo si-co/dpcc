@@ -91,8 +91,64 @@ func (s *Service) HashPublic(req *dpcc.HashPublicRequest) (*dpcc.HashPublicRespo
 	case <-time.After(time.Second * 5):
 		return nil, errors.New("timeout in hash public protocol")
 	}
-	// create protocol
+}
 
+// HashPrivate receives a reuqest of hash private protocol from the client,
+// executes the corresponding protocol and sends the response back to the
+// client
+func (s *Service) HashPrivate(req *dpcc.HashPrivateRequest) (*dpcc.HashPrivateResponse, error) {
+	// generate the tree
+	root := req.Roster.NewRosterWithRoot(s.ServerIdentity())
+	tree := root.GenerateNaryTree(len(req.Roster.List))
+	if tree == nil {
+		return nil, errors.New("error while creating the tree for the requested protocol")
+
+	}
+
+	// create the protocol
+	instance, err := s.CreateProtocol(protocol.NameHashPrivate, tree)
+	if err != nil {
+		return nil, err
+	}
+	protocol := instance.(*protocol.HashPrivate)
+
+	// configure protocol
+	protocol.URL = req.URL
+	protocol.ClientPublicKeys = req.ClientPublicKeys
+
+	// run protocol
+	if err = protocol.Start(); err != nil {
+		return nil, err
+	}
+
+	// wait protocol to finish or trigger timeout error
+	select {
+	case <-protocol.Finished:
+		// get data from protocol
+		responses := protocol.Responses
+
+		// prepare data for client. The details of the protocol should
+		// not be visible to the client, therefore che service is
+		// responsible to "translate" the data in a format for the
+		// client
+		hashPrivateResponses := make(map[string]*dpcc.HashPrivateSingleResponse)
+		for pk, r := range responses {
+			sr := &dpcc.HashPrivateSingleResponse{
+				PublicKey:     r.PublicKey,
+				EncryptedHash: r.EncryptedHash,
+				Nonce:         r.Nonce,
+			}
+			hashPrivateResponses[pk] = sr
+		}
+
+		resp := &dpcc.HashPrivateResponse{
+			Responses: hashPrivateResponses,
+		}
+
+		return resp, nil
+	case <-time.After(time.Second * 5):
+		return nil, errors.New("timeout in hash public protocol")
+	}
 }
 
 // NewProtocol is called on all nodes of a Tree (except the root, since it is
@@ -142,7 +198,7 @@ func newService(c *onet.Context) (onet.Service, error) {
 	s := &Service{
 		ServiceProcessor: onet.NewServiceProcessor(c),
 	}
-	if err := s.RegisterHandlers(s.HashPublic); err != nil {
+	if err := s.RegisterHandlers(s.HashPublic, s.HashPrivate); err != nil {
 		log.Error(err, "Couldn't register messages")
 		return nil, err
 	}

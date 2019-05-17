@@ -5,7 +5,23 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/sign/schnorr"
 	"go.dedis.ch/kyber/v3/util/random"
+	"go.dedis.ch/onet/v3"
 )
+
+// GenEphemeralKeys generate an ephemeral key pair for every conode in the
+// roster. Note: the security of this function should be verified, because we
+// return also the private keys
+func GenEphemeralKeys(r *onet.Roster) (map[string]kyber.Scalar, map[string]kyber.Point) {
+	ephemeralPrivateKeys := make(map[string]kyber.Scalar)
+	ephemeralPublicKeys := make(map[string]kyber.Point)
+	for _, v := range r.List {
+		k := cothority.Suite.Scalar().Pick(random.New())
+		ephemeralPrivateKeys[v.Public.String()] = k
+		ephemeralPublicKeys[v.Public.String()] = cothority.Suite.Point().Mul(k, nil)
+	}
+
+	return ephemeralPrivateKeys, ephemeralPublicKeys
+}
 
 // GenNonce generates a 32 bytes nonce
 func GenNonce() []byte {

@@ -37,6 +37,18 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:      "hashprivate",
+			Usage:     "execute hash private protocol",
+			ArgsUsage: groupsDef,
+			Action:    cmdHashPrivate,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "url, u",
+					Usage: "provide URL for consensus",
+				},
+			},
+		},
 	}
 	cliApp.Flags = []cli.Flag{
 		cli.IntFlag{
@@ -68,6 +80,27 @@ func cmdHashPublic(c *cli.Context) error {
 	// print received hashes
 	for n, singleResp := range resp.Responses {
 		fmt.Println("Node", n, "sent hash", base64.StdEncoding.EncodeToString(singleResp.Hash))
+	}
+	return nil
+
+}
+
+func cmdHashPrivate(c *cli.Context) error {
+	log.Info("hash private protocol request")
+	URL := c.String("url")
+	if URL == "" {
+		log.Fatal("please provide an URL")
+	}
+	group := readGroup(c)
+	client := dpcc.NewClient()
+	resp, err := client.PrivateHashRequest(group.Roster, URL)
+	if err != nil {
+		log.Fatal("when asking for hash private protocol", err)
+	}
+
+	// print received hashes
+	for n, h := range resp.Hashes {
+		fmt.Println("Node", n, "sent hash", base64.StdEncoding.EncodeToString(h))
 	}
 	return nil
 
