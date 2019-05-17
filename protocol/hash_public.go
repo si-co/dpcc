@@ -31,7 +31,7 @@ type HashPublic struct {
 	// nonce received from the client
 	Nonce []byte
 	// map of conode responses indexed by the public key of the worker
-	Responses map[string]*WorkerResponseHashPublic
+	Responses map[string]*HashPublicResponse
 	// associated lock
 	responsesLock *sync.Mutex
 
@@ -50,7 +50,7 @@ func NewHashPublicProtocol(n *onet.TreeNodeInstance) (onet.ProtocolInstance, err
 	log.Lvl2("creating new hash comparaison protocol")
 	h := &HashPublic{
 		TreeNodeInstance: n,
-		Responses:        make(map[string]*WorkerResponseHashPublic),
+		Responses:        make(map[string]*HashPublicResponse),
 		responsesLock:    new(sync.Mutex),
 		Finished:         make(chan bool, 1),
 	}
@@ -175,13 +175,8 @@ func (h *HashPublic) handleResponse(in *HashPublicResponse) error {
 	// if we are the root, we store the child contribution
 	pkString := in.PublicKey.String()
 	log.Lvlf3("%s aggregating response for node %s", h.Name(), pkString)
-	wr := &WorkerResponseHashPublic{
-		PublicKey: in.PublicKey,
-		Hash:      in.Hash,
-		Signature: in.Signature,
-	}
 	h.responsesLock.Lock()
-	h.Responses[pkString] = wr
+	h.Responses[pkString] = in
 	h.responsesLock.Unlock()
 	return nil
 
